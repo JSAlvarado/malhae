@@ -1,0 +1,25 @@
+# Daily Korean email: every morning at 08:00 Seoul time, send Seoul's weather and a Malhae phrase.
+# The script is .github/scripts/daily_korean.py; the Gmail details are repository secrets, never in the code.
+name: Daily Korean email
+
+on:
+  schedule:
+    - cron: "0 23 * * *"   # 23:00 UTC = 08:00 in Seoul (GitHub may start scheduled runs a few minutes late)
+  workflow_dispatch:        # adds a "Run workflow" button on the Actions tab, for testing
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Get the repository (the script and Malhae's phrasebook)
+        uses: actions/checkout@v4
+
+      - name: Send the email
+        run: python3 .github/scripts/daily_korean.py
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
