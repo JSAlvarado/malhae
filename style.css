@@ -44,6 +44,7 @@ p { margin: 0; }
   background: var(--surface); font-size: 14px; font-weight: 600;
 }
 .toggle[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.top-btns { display: flex; gap: 8px; }
 
 /* ============ TITLE ROW ============ */
 .screen { padding: 4px var(--pad) 0; }
@@ -108,16 +109,23 @@ h1 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 700; letter-spac
 .player[hidden] { display: none; }
 .player-top { display: flex; align-items: center; gap: 12px; }
 .player-text { flex: 1; min-width: 0; }
-/* Suggested next: one row of chips that scrolls inside itself */
-.next { display: flex; align-items: center; gap: 8px; overflow-x: auto; margin: 0 calc(-1 * var(--pad)); padding: 0 var(--pad); scrollbar-width: none; }
-.next::-webkit-scrollbar { display: none; }
+/* Suggested next: four big tiles, English over Korean, one tap plays */
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .next[hidden] { display: none; }
-.next-lbl { flex: none; color: var(--muted); font-size: 13px; font-weight: 600; }
-.next button { flex: none; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--raised); font-size: 14px; font-weight: 500; }
+.next-lbl { grid-column: 1 / -1; color: var(--muted); font-size: 13px; font-weight: 600; }
+
+/* A say-it tile, shared by the player and Talk mode */
+.tile {
+  display: flex; flex-direction: column; justify-content: center; min-height: 64px; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--raised); text-align: left;
+}
+.tile .en { font-size: 14px; font-weight: 600; line-height: 1.25; }
+.tile .ko { margin-top: 2px; color: var(--accent); font-size: 15px; font-weight: 600; line-height: 1.25; word-break: keep-all; }
+.tile:active, .say:active, .reply:active { background: var(--active, #e4e4df); }
 .player-ko { color: var(--accent); font-size: 20px; font-weight: 600; line-height: 1.25; word-break: keep-all; overflow-wrap: anywhere; }
 .player-en { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-btns { display: flex; gap: 8px; }
-body.has-player .screen { padding-bottom: 170px; }
+body.has-player .screen { padding-bottom: 260px; }
 .btn { min-height: 44px; padding: 0 16px; border: 1px solid var(--control); border-radius: 999px; background: var(--surface); font-size: 15px; font-weight: 600; }
 .btn--primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 
@@ -134,7 +142,64 @@ body.has-player .screen { padding-bottom: 170px; }
 
 /* ============ CREDIT ============ */
 .credit { padding: 0 var(--pad) 24px; color: var(--muted); font-size: 12px; }
-body.has-player .credit { padding-bottom: 180px; }
+body.has-player .credit { padding-bottom: 270px; }
+
+/* ============ TALK MODE ============ */
+.talk { position: fixed; inset: 0; z-index: 8; display: flex; flex-direction: column; height: 100dvh; background: var(--ground); }
+.talk[hidden] { display: none; }
+body.in-talk { overflow: hidden; }
+.side { flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px var(--pad); }
+.side--them { background: #eef3fa; } /* one tone step: their half reads apart from mine */
+/* My half takes only the room it needs, so all of their replies fit without scrolling */
+.side--me { flex: 0 0 auto; max-height: 62%; background: var(--surface); border-top: 1px solid var(--border); }
+/* Whose turn: the side that types sits at the bottom, upright; the other faces the person across */
+.talk[data-turn="me"] .side--them, .talk[data-turn="them"] .side--me { order: 0; transform: rotate(180deg); }
+.talk[data-turn="me"] .side--me, .talk[data-turn="them"] .side--them { order: 1; padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+.talk[data-turn="them"] .side--me { border-top: 0; border-bottom: 1px solid var(--border); }
+.side-label { color: var(--muted); font-size: 13px; font-weight: 600; }
+
+/* Their half: what I said, big; their one-tap replies */
+.said { display: flex; align-items: center; gap: 12px; min-height: 64px; }
+.said-ko { flex: 1; font-size: clamp(26px, 7vw, 40px); font-weight: 700; line-height: 1.2; word-break: keep-all; overflow-wrap: anywhere; }
+.said-ko.is-hint { color: var(--muted); font-size: 16px; font-weight: 500; }
+.replies { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.reply { min-height: 44px; padding: 4px 6px; border: 1px solid #cfdbec; border-radius: 12px; background: var(--surface); font-size: 14px; font-weight: 600; line-height: 1.2; word-break: keep-all; }
+.btn--wide { width: 100%; }
+.composer { display: flex; gap: 8px; }
+.composer input { flex: 1; min-width: 0; min-height: 48px; padding: 0 16px; border: 1px solid var(--control); border-radius: 999px; background: var(--surface); font-size: 16px; }
+.composer input::-webkit-search-cancel-button { display: none; }
+.talk-note { min-height: 0; color: var(--muted); font-size: 13px; }
+.talk-note:empty { display: none; }
+/* Only the side whose turn it is can type; while they type, my half shows the button that takes the turn back */
+.talk[data-turn="me"] #t-form, .talk[data-turn="them"] #t-type,
+.talk[data-turn="them"] #m-form, .talk[data-turn="them"] #m-tiles, .talk[data-turn="them"] .me-head .toggle { display: none; }
+.turn-me { display: none; }
+.talk[data-turn="them"] .turn-me { display: block; }
+
+/* My half: what they said, big; four tiles; search or type */
+.me-head { display: flex; align-items: center; gap: 8px; }
+.me-head .side-label { margin-right: auto; }
+.heard { min-height: 56px; }
+.heard .en { font-size: clamp(22px, 6vw, 32px); font-weight: 700; line-height: 1.2; }
+.heard .ko { margin-top: 2px; color: var(--muted); font-size: 14px; }
+.heard .hint { color: var(--muted); font-size: 15px; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Short phones (iPhone SE and similar): tighter Talk mode so both halves still fit */
+@media (max-height: 740px) {
+  .side { gap: 6px; padding-top: 10px; padding-bottom: 10px; }
+  .me-head .btn, .me-head .toggle { min-height: 40px; }
+  .heard { min-height: 0; }
+  .heard .en { font-size: 20px; }
+  .talk .tile { min-height: 50px; padding: 6px 10px; }
+  .talk .tile .en { font-size: 13px; }
+  .talk .tile .ko { font-size: 14px; }
+  .said { min-height: 0; }
+  .said-ko { font-size: 24px; }
+  .said-ko.is-hint { font-size: 14px; }
+  .reply { min-height: 38px; font-size: 13px; }
+  .composer input, .talk .btn--wide { min-height: 44px; }
+}
 
 @media (prefers-reduced-motion: no-preference) {
   .row, .chips button, .toggle, .btn { transition: background-color 150ms ease, color 150ms ease; }

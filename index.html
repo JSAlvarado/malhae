@@ -21,7 +21,10 @@
       <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 6h22a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H14l-6 5v-5H5a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3z"/><text x="16" y="19.5" text-anchor="middle">말</text></svg>
       <span>Malhae</span>
     </a>
-    <button class="toggle" id="slow" type="button" aria-pressed="false">Slow voice</button>
+    <div class="top-btns">
+      <button class="toggle" id="slow" type="button" aria-pressed="false">Slow</button>
+      <button class="btn btn--primary" id="talk-open" type="button">Talk</button>
+    </div>
   </header>
 
   <main class="screen">
@@ -68,6 +71,46 @@
     <p class="show-ko" id="show-ko" lang="ko"></p>
     <p class="show-en" id="show-en"></p>
     <button class="btn btn--primary show-play" id="show-play" type="button">Play again</button>
+  </div>
+
+  <!-- ============ TALK MODE: face to face on one phone ============
+       data-turn is who types now: "me" puts my half at the bottom, upright; the other half is turned
+       upside down to face the person across the table. "them" swaps the halves so they can type. -->
+  <div class="talk" id="talk" data-turn="me" role="dialog" aria-modal="true" aria-label="Talk mode" hidden>
+
+    <!-- Their half, in Korean -->
+    <section class="side side--them" lang="ko" aria-label="상대방 화면">
+      <div class="said">
+        <p class="said-ko" id="t-said"></p>
+        <button class="btn" id="t-replay" type="button" hidden>다시 듣기</button>
+      </div>
+      <div class="replies" id="t-replies"></div>
+      <button class="btn btn--wide" id="t-type" type="button">직접 입력하기</button>
+      <form class="composer" id="t-form">
+        <label class="sr-only" for="t-input">한국어로 입력하세요</label>
+        <input id="t-input" type="text" maxlength="160" autocomplete="off" enterkeyhint="send" placeholder="한국어로 입력하세요…">
+        <button class="btn btn--primary" type="submit">보내기</button>
+      </form>
+      <p class="talk-note" id="t-note" aria-live="polite"></p>
+    </section>
+
+    <!-- My half, in English -->
+    <section class="side side--me" aria-label="Your side">
+      <div class="me-head">
+        <p class="side-label">Talk mode</p>
+        <button class="toggle" id="m-slow" type="button" aria-pressed="false">Slow</button>
+        <button class="btn" id="talk-close" type="button">Done</button>
+      </div>
+      <div class="heard" id="m-heard" aria-live="polite"></div>
+      <button class="btn btn--wide turn-me" id="m-back" type="button">Your turn: tap here, then turn the phone to you</button>
+      <div class="tiles" id="m-tiles" role="group" aria-label="Tap to say"></div>
+      <form class="composer" id="m-form">
+        <label class="sr-only" for="m-input">Search or type in English</label>
+        <input id="m-input" type="search" maxlength="160" autocomplete="off" enterkeyhint="send" placeholder="Search or type in English…">
+        <button class="btn btn--primary" type="submit">Say</button>
+      </form>
+      <p class="talk-note" id="m-note" aria-live="polite"></p>
+    </section>
   </div>
 
   <footer class="credit">Voice: your phone's Korean voice. Your own sentences are translated by MyMemory.</footer>
