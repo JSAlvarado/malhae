@@ -22,6 +22,73 @@
       ["Goodbye (you are leaving)", "안녕히 계세요", "annyeonghi gyeseyo"],
       ["Goodbye (they are leaving)", "안녕히 가세요", "annyeonghi gaseyo"]
     ] },
+    { id: "words", name: "Words", phrases: [
+      ["Water", "물", "mul"],
+      ["Restroom", "화장실", "hwajangsil"],
+      ["Hospital", "병원", "byeongwon"],
+      ["Pharmacy", "약국", "yakguk"],
+      ["Subway", "지하철", "jihacheol"],
+      ["Bus", "버스", "beoseu"],
+      ["Taxi", "택시", "taeksi"],
+      ["Station", "역", "yeok"],
+      ["Exit", "출구", "chulgu"],
+      ["Left", "왼쪽", "oenjjok"],
+      ["Right", "오른쪽", "oreunjjok"],
+      ["Straight ahead", "직진", "jikjin"],
+      ["Here", "여기", "yeogi"],
+      ["There", "저기", "jeogi"],
+      ["Now", "지금", "jigeum"],
+      ["Today", "오늘", "oneul"],
+      ["Tomorrow", "내일", "naeil"],
+      ["Yesterday", "어제", "eoje"],
+      ["Cash", "현금", "hyeongeum"],
+      ["Card", "카드", "kadeu"],
+      ["Rice", "밥", "bap"],
+      ["Coffee", "커피", "keopi"],
+      ["Beef", "소고기", "sogogi"],
+      ["Pork", "돼지고기", "dwaejigogi"],
+      ["It's spicy", "매워요", "maewoyo"],
+      ["It's hot (temperature)", "뜨거워요", "tteugeowoyo"],
+      ["It's cold", "차가워요", "chagawoyo"]
+    ] },
+    // Korean has two number systems: Sino-Korean (일, 이, 삼) for money, minutes, dates and phone numbers,
+    // and native Korean (하나, 둘, 셋) for counting things, hours and age
+    { id: "numbers", name: "Numbers", phrases: [
+      ["0 (zero)", "영", "yeong"],
+      ["1 (money, minutes)", "일", "il"],
+      ["2 (money, minutes)", "이", "i"],
+      ["3 (money, minutes)", "삼", "sam"],
+      ["4 (money, minutes)", "사", "sa"],
+      ["5 (money, minutes)", "오", "o"],
+      ["6 (money, minutes)", "육", "yuk"],
+      ["7 (money, minutes)", "칠", "chil"],
+      ["8 (money, minutes)", "팔", "pal"],
+      ["9 (money, minutes)", "구", "gu"],
+      ["10 (money, minutes)", "십", "sip"],
+      ["100", "백", "baek"],
+      ["1,000", "천", "cheon"],
+      ["10,000", "만", "man"],
+      ["1 (counting things)", "하나", "hana"],
+      ["2 (counting things)", "둘", "dul"],
+      ["3 (counting things)", "셋", "set"],
+      ["4 (counting things)", "넷", "net"],
+      ["5 (counting things)", "다섯", "daseot"],
+      ["6 (counting things)", "여섯", "yeoseot"],
+      ["7 (counting things)", "일곱", "ilgop"],
+      ["8 (counting things)", "여덟", "yeodeol"],
+      ["9 (counting things)", "아홉", "ahop"],
+      ["10 (counting things)", "열", "yeol"],
+      ["One of these, please", "한 개 주세요", "han gae juseyo"],
+      ["Two of these, please", "두 개 주세요", "du gae juseyo"],
+      ["Three of these, please", "세 개 주세요", "se gae juseyo"],
+      ["1,000 won", "천 원", "cheon won"],
+      ["5,000 won", "오천 원", "ocheon won"],
+      ["10,000 won", "만 원", "man won"],
+      ["50,000 won", "오만 원", "oman won"],
+      ["1 o'clock", "한 시", "han si"],
+      ["2 o'clock", "두 시", "du si"],
+      ["30 minutes", "삼십 분", "samsip bun"]
+    ] },
     { id: "food", name: "Restaurant", phrases: [
       ["One person, please", "한 명이에요", "han myeongieyo"],
       ["Two people, please", "두 명이에요", "du myeongieyo"],
@@ -78,6 +145,103 @@
   ];
   // Every built-in phrase as one object; the English text is its stable id (used for saved stars)
   const BUILT_IN = TOPICS.flatMap((t) => t.phrases.map(([en, ko, rom]) => ({ id: "p:" + en, en, ko, rom, topic: t.id })));
+  const BY_ID = new Map(BUILT_IN.map((p) => [p.id, p]));
+
+  // ---- Suggested next: what people usually say after each phrase, best first ----
+  // This is the starting point; the app also learns from the order you tap phrases on this phone.
+  const NEXT = {
+    "Hello": ["I don't speak Korean well", "Could you help me?", "Excuse me (to call staff)"],
+    "Excuse me (to call staff)": ["Menu, please", "Water, please", "The bill, please"],
+    "I don't speak Korean well": ["Please speak slowly", "Please write it down", "Thank you"],
+    "Could you say that again?": ["Please speak slowly", "Please write it down", "I understand"],
+    "I don't understand": ["Please speak slowly", "Please write it down", "Could you say that again?"],
+    "Nice to meet you": ["I'm from the Philippines", "I'm a computer engineering student", "Thank you"],
+    "I'm from the Philippines": ["I'm a computer engineering student", "I don't speak Korean well", "Nice to meet you"],
+    "One person, please": ["Menu, please", "Water, please", "Is this seat taken?"],
+    "Two people, please": ["Menu, please", "Water, please", "Is this seat taken?"],
+    "Is this seat taken?": ["Thank you", "Menu, please", "Water, please"],
+    "Menu, please": ["This one, please", "Not spicy, please", "I'm allergic to shrimp"],
+    "This one, please": ["One more, please", "Not spicy, please", "Water, please"],
+    "Not spicy, please": ["This one, please", "Water, please", "Thank you"],
+    "I'm allergic to shrimp": ["Not spicy, please", "This one, please", "Thank you"],
+    "It's delicious": ["One more, please", "The bill, please", "Thank you"],
+    "To go, please": ["The bill, please", "Can I pay by card?", "Thank you"],
+    "The bill, please": ["Can I pay by card?", "Receipt, please", "Thank you"],
+    "How much is it?": ["Can I pay by card?", "Could you give me a discount?", "This one, please"],
+    "Can I pay by card?": ["Receipt, please", "A bag, please", "Thank you"],
+    "I'm just looking": ["How much is it?", "Do you have a bigger size?", "Thank you"],
+    "Do you have a bigger size?": ["How much is it?", "This one, please", "Thank you"],
+    "Please heat this up": ["A bag, please", "Can I pay by card?", "Thank you"],
+    "Where is the subway station?": ["How long does it take?", "Left", "Right"],
+    "Where is the restroom?": ["Thank you", "Left", "Right"],
+    "Please take me to this address": ["How long does it take?", "Please stop here", "Can I pay by card?"],
+    "Please stop here": ["Can I pay by card?", "Receipt, please", "Thank you"],
+    "Does this bus go to Seoul Station?": ["How long does it take?", "Please charge my T-money card", "Thank you"],
+    "How long does it take?": ["Thank you", "Please speak slowly", "30 minutes"],
+    "I'm lost": ["Where is the subway station?", "Could you help me?", "Please take me to this address"],
+    "Could you help me?": ["I'm lost", "I don't speak Korean well", "Thank you"],
+    "Help!": ["Please call an ambulance", "Please call the police", "I'm sick"],
+    "I'm sick": ["Where is the hospital?", "Where is a pharmacy?", "Please call an ambulance"],
+    "Where is the hospital?": ["Please call an ambulance", "Please take me to this address", "Thank you"],
+    "I lost my phone": ["Please call the police", "Could you help me?", "Thank you"],
+    "Thank you": ["Goodbye (you are leaving)", "Goodbye (they are leaving)", "It's delicious"]
+  };
+  // What you yourself tapped after each phrase, counted on this phone
+  const learned = (() => { try { const v = JSON.parse(localStorage.getItem("malhaeLearned")); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } })();
+  function learn(prev, next) {
+    // Typed numbers are one-offs, so they are never learned as a step in a conversation
+    if (!prev || !next || prev.id === next.id || prev.temp || next.temp) return;
+    const row = (learned[prev.id] = learned[prev.id] || {});
+    row[next.id] = (row[next.id] || 0) + 1;
+    try { localStorage.setItem("malhaeLearned", JSON.stringify(learned)); } catch (e) { /* not saved */ }
+  }
+  // Top three next phrases: your own habits count double, the usual patterns fill the rest
+  function suggestNext(p) {
+    const score = new Map();
+    // A typed price leads to paying, like "How much is it?"
+    const key = p.temp && p.id.endsWith("w") ? "How much is it?" : p.en;
+    (NEXT[key] || []).forEach((en, i) => { if (BY_ID.has("p:" + en)) score.set("p:" + en, 3 - i); });
+    Object.entries(learned[p.id] || {}).forEach(([id, n]) => score.set(id, (score.get(id) || 0) + 2 * n));
+    score.delete(p.id);
+    const picks = [...score.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => phraseById(id)).filter(Boolean).slice(0, 3);
+    // Not enough known? Fill with the phrases that follow this one in its topic
+    const topic = TOPICS.find((t) => t.id === p.topic);
+    if (picks.length < 3 && topic) {
+      const list = topic.phrases.map(([en]) => BY_ID.get("p:" + en));
+      const at = list.findIndex((x) => x.id === p.id);
+      for (let i = 1; i < list.length && picks.length < 3; i++) {
+        const x = list[(at + i) % list.length];
+        if (x.id !== p.id && !picks.some((y) => y.id === x.id)) picks.push(x);
+      }
+    }
+    return picks;
+  }
+
+  // ---- Numbers: any number you type is read the Sino-Korean way (prices, minutes, phone numbers) ----
+  const DIGITS = ["", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"];
+  function fourDigits(n) {
+    // "일" is left out before 십, 백 and 천: 10 is 십, not 일십
+    return [[1000, "천"], [100, "백"], [10, "십"], [1, ""]].map(([v, unit]) => {
+      const d = Math.floor(n / v) % 10;
+      return d ? (d === 1 && unit ? "" : DIGITS[d]) + unit : "";
+    }).join("");
+  }
+  function sinoKorean(n) {
+    if (n === 0) return "영";
+    const eok = Math.floor(n / 1e8), man = Math.floor(n / 1e4) % 1e4, rest = n % 1e4;
+    return [eok ? fourDigits(eok) + "억" : "", man ? (man === 1 ? "" : fourDigits(man)) + "만" : "", rest ? fourDigits(rest) : ""]
+      .filter(Boolean).join(" ");
+  }
+  // "12500", "12,500 won" or "₩12500" becomes a playable row
+  function numberPhrase(text) {
+    const m = text.match(/^\s*(₩\s*)?(\d[\d,]*)\s*(won|원)?\s*$/i);
+    if (!m) return null;
+    const n = Number(m[2].replace(/,/g, ""));
+    if (!Number.isSafeInteger(n) || n >= 1e12) return null;
+    const won = !!(m[1] || m[3]);
+    return { id: "n:" + n + (won ? "w" : ""), en: n.toLocaleString("en-US") + (won ? " won" : ""), ko: sinoKorean(n) + (won ? " 원" : ""),
+      rom: won ? "Korean price" : "Korean number (for money, minutes and phone numbers)", temp: true };
+  }
 
   // ---- Saved on this phone: starred phrases, your own translations, the slow setting ----
   const store = {
@@ -100,6 +264,7 @@
   const list = $("list"), chips = $("chips"), finding = $("finding"), q = $("q");
   const ownPhrase = (p) => ({ ...p, rom: "Machine translation. Check it if it matters.", topic: "saved", own: true });
   const savedPhrases = () => [...own.map(ownPhrase), ...BUILT_IN.filter((p) => starred.has(p.id))];
+  const phraseById = (id) => { if (BY_ID.has(id)) return BY_ID.get(id); const o = own.find((x) => x.id === id); return o ? ownPhrase(o) : null; };
 
   // Search: English, Korean and romanization, ignoring case and extra spaces
   const norm = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
@@ -122,6 +287,7 @@
   if (synth) { pickVoice(); synth.addEventListener?.("voiceschanged", pickVoice); }
 
   function speak(p) {
+    learn(state.last, p);
     state.last = p;
     renderPlayer();
     document.querySelectorAll(".row.is-playing").forEach((r) => r.classList.remove("is-playing"));
@@ -200,7 +366,8 @@
     show.textContent = "Show";
     show.setAttribute("aria-label", "Show " + p.en + " in large Korean text");
     show.addEventListener("click", () => openShow(p));
-    acts.append(star, show);
+    // A typed number is not a phrase to keep, so it gets no star
+    if (p.temp) acts.append(show); else acts.append(star, show);
     li.append(say, acts);
     return li;
   }
@@ -241,7 +408,9 @@
     const text = state.query.trim();
     // A typed sentence that isn't an exact phrase gets its own translate row, first
     const exact = rows.some((p) => norm(p.en) === norm(text));
-    if (text.length >= 2 && !exact && !/[가-힣]/.test(text)) list.append(ownRow(text));
+    const num = numberPhrase(text);
+    if (num) list.append(phraseRow(num));
+    else if (text.length >= 2 && !exact && !/[가-힣]/.test(text)) list.append(ownRow(text));
     rows.forEach((p) => list.append(phraseRow(p)));
     if (!list.children.length) {
       const li = document.createElement("li");
@@ -253,7 +422,7 @@
     const topicName = state.topic === "all" ? "" : " in " + (state.topic === "saved" ? "Saved" : TOPICS.find((t) => t.id === state.topic).name);
     finding.textContent = text
       ? rows.length + (rows.length === 1 ? " phrase matches" : " phrases match") + " “" + text + "”" + topicName + "."
-      : rows.length + " phrases" + topicName + ". Tap one to hear it in Korean.";
+      : rows.length + " phrases" + topicName + ". Tap one to hear it in Korean." + (state.topic === "numbers" ? " Type any number or price above to hear it." : "");
   }
 
   function renderPlayer() {
@@ -263,6 +432,24 @@
     if (!p) return;
     $("player-ko").textContent = p.ko;
     $("player-en").textContent = p.en;
+    // Suggested next: one tap plays it
+    const next = $("next");
+    next.replaceChildren();
+    const picks = suggestNext(p);
+    next.hidden = !picks.length;
+    if (!picks.length) return;
+    const lbl = document.createElement("span");
+    lbl.className = "next-lbl";
+    lbl.textContent = "Next";
+    next.append(lbl);
+    picks.forEach((s) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = s.en;
+      b.setAttribute("aria-label", "Say next: " + s.en + ", " + s.ko);
+      b.addEventListener("click", () => speak(s));
+      next.append(b);
+    });
   }
 
   function render() { renderChips(); renderList(); renderPlayer(); }
@@ -326,8 +513,10 @@
     q.blur();
     const text = state.query.trim();
     const rows = inTopic(state.topic).filter(matches);
-    // Enter plays the only match, or translates when nothing matches
-    if (rows.length === 1) speak(rows[0]);
+    const num = numberPhrase(text);
+    // Enter plays a typed number, the only match, or translates when nothing matches
+    if (num) speak(num);
+    else if (rows.length === 1) speak(rows[0]);
     else if (!rows.length && text.length >= 2 && !HANGUL.test(text)) translateOwn(text);
   });
   $("clear").addEventListener("click", () => {

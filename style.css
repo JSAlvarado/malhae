@@ -101,16 +101,23 @@ h1 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 700; letter-spac
 
 /* ============ NOW PLAYING: floats, so it may carry a shadow ============ */
 .player {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; align-items: center; gap: 12px;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; flex-direction: column; gap: 10px;
   max-width: 640px; margin: 0 auto; padding: 12px var(--pad) max(12px, env(safe-area-inset-bottom));
   background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
 }
 .player[hidden] { display: none; }
+.player-top { display: flex; align-items: center; gap: 12px; }
 .player-text { flex: 1; min-width: 0; }
+/* Suggested next: one row of chips that scrolls inside itself */
+.next { display: flex; align-items: center; gap: 8px; overflow-x: auto; margin: 0 calc(-1 * var(--pad)); padding: 0 var(--pad); scrollbar-width: none; }
+.next::-webkit-scrollbar { display: none; }
+.next[hidden] { display: none; }
+.next-lbl { flex: none; color: var(--muted); font-size: 13px; font-weight: 600; }
+.next button { flex: none; min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--raised); font-size: 14px; font-weight: 500; }
 .player-ko { color: var(--accent); font-size: 20px; font-weight: 600; line-height: 1.25; word-break: keep-all; overflow-wrap: anywhere; }
 .player-en { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-btns { display: flex; gap: 8px; }
-body.has-player .screen { padding-bottom: 110px; }
+body.has-player .screen { padding-bottom: 170px; }
 .btn { min-height: 44px; padding: 0 16px; border: 1px solid var(--control); border-radius: 999px; background: var(--surface); font-size: 15px; font-weight: 600; }
 .btn--primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 
@@ -127,7 +134,7 @@ body.has-player .screen { padding-bottom: 110px; }
 
 /* ============ CREDIT ============ */
 .credit { padding: 0 var(--pad) 24px; color: var(--muted); font-size: 12px; }
-body.has-player .credit { padding-bottom: 120px; }
+body.has-player .credit { padding-bottom: 180px; }
 
 @media (prefers-reduced-motion: no-preference) {
   .row, .chips button, .toggle, .btn { transition: background-color 150ms ease, color 150ms ease; }
