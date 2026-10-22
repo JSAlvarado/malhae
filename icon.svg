@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Malhae icon: a gold speech bubble saying 말 with sound waves, on navy -->
+  <rect width="512" height="512" rx="112" fill="#1d2740"/>
+  <path d="M84 132h232a40 40 0 0 1 40 40v128a40 40 0 0 1-40 40h-120l-64 56v-56h-48a40 40 0 0 1-40-40v-128a40 40 0 0 1 40-40z" fill="#e0b35a"/>
+  <text x="200" y="282" font-family="Apple SD Gothic Neo, Malgun Gothic, sans-serif" font-size="140" font-weight="800" text-anchor="middle" fill="#1d2740">말</text>
+  <path d="M392 196a80 80 0 0 1 0 104" fill="none" stroke="#f3f5fa" stroke-width="22" stroke-linecap="round"/>
+  <path d="M430 160a130 130 0 0 1 0 176" fill="none" stroke="#f3f5fa" stroke-width="22" stroke-linecap="round"/>
+</svg>

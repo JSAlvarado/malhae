@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Malhae · Tap English, hear Korean</title>
+  <meta name="description" content="A tap-to-speak Korean phrasebook: tap an English phrase and hear it in Korean.">
+  <meta name="theme-color" content="#1d2740">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Malhae <span lang="ko">말해</span></h1>
+    <p class="sub">Tap a phrase to hear it in Korean.</p>
+    <!-- Type your own sentence: translated, then spoken -->
+    <form class="own" id="own">
+      <label class="sr-only" for="own-text">Type an English sentence</label>
+      <input id="own-text" type="text" maxlength="160" autocomplete="off" enterkeyhint="go" placeholder="Type your own English…">
+      <button type="submit">Say it</button>
+    </form>
+    <p class="note" id="note" aria-live="polite"></p>
+    <nav class="cats" id="cats" aria-label="Phrase topics"></nav>
+  </header>
+
+  <main>
+    <ul class="list" id="list"></ul>
+  </main>
+
+  <footer class="bar">
+    <button class="slow" id="slow" type="button" aria-pressed="false">Slow</button>
+    <p class="credit">Voice: your phone's Korean voice · Typed sentences: MyMemory</p>
+  </footer>
+
+  <!-- Show to the other person: the Korean, as large as the screen allows -->
+  <div class="show" id="show" role="dialog" aria-modal="true" aria-label="Korean phrase, large" hidden>
+    <p class="show-ko" id="show-ko" lang="ko"></p>
+    <p class="show-en" id="show-en"></p>
+    <div class="show-btns">
+      <button type="button" id="show-play">▶ Play again</button>
+      <button type="button" id="show-close">Close</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
