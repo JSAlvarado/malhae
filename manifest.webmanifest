@@ -1,13 +1,13 @@
 {
   "name": "Malhae · Tap English, hear Korean",
   "short_name": "Malhae",
-  "description": "A tap-to-speak Korean phrasebook: tap an English phrase and hear it in Korean.",
+  "description": "A tap-to-speak Korean phrasebook: find or type an English phrase and hear it in Korean.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f6f4ef",
-  "theme_color": "#1d2740",
+  "background_color": "#f5f5f2",
+  "theme_color": "#f5f5f2",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
