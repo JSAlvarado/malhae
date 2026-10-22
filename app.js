@@ -195,21 +195,21 @@
     row[next.id] = (row[next.id] || 0) + 1;
     try { localStorage.setItem("malhaeLearned", JSON.stringify(learned)); } catch (e) { /* not saved */ }
   }
-  // Top three next phrases: your own habits count double, the usual patterns fill the rest
-  function suggestNext(p) {
+  // Top next phrases: your own habits count double, the usual patterns fill the rest
+  function suggestNext(p, count = 4) {
     const score = new Map();
     // A typed price leads to paying, like "How much is it?"
     const key = p.temp && p.id.endsWith("w") ? "How much is it?" : p.en;
     (NEXT[key] || []).forEach((en, i) => { if (BY_ID.has("p:" + en)) score.set("p:" + en, 3 - i); });
     Object.entries(learned[p.id] || {}).forEach(([id, n]) => score.set(id, (score.get(id) || 0) + 2 * n));
     score.delete(p.id);
-    const picks = [...score.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => phraseById(id)).filter(Boolean).slice(0, 3);
+    const picks = [...score.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => phraseById(id)).filter(Boolean).slice(0, count);
     // Not enough known? Fill with the phrases that follow this one in its topic
     const topic = TOPICS.find((t) => t.id === p.topic);
-    if (picks.length < 3 && topic) {
+    if (picks.length < count && topic) {
       const list = topic.phrases.map(([en]) => BY_ID.get("p:" + en));
       const at = list.findIndex((x) => x.id === p.id);
-      for (let i = 1; i < list.length && picks.length < 3; i++) {
+      for (let i = 1; i < list.length && picks.length < count; i++) {
         const x = list[(at + i) % list.length];
         if (x.id !== p.id && !picks.some((y) => y.id === x.id)) picks.push(x);
       }
@@ -286,7 +286,7 @@
   }
   if (synth) { pickVoice(); synth.addEventListener?.("voiceschanged", pickVoice); }
 
-  function speak(p) {
+  function speak(p, opts = {}) {
     learn(state.last, p);
     state.last = p;
     renderPlayer();
@@ -298,7 +298,7 @@
     const u = new SpeechSynthesisUtterance(p.ko);
     u.lang = "ko-KR";
     if (voice) u.voice = voice;
-    u.rate = state.slow ? 0.6 : 0.9;
+    u.rate = state.slow || opts.slow ? 0.6 : 0.9;
     u.onend = u.onerror = () => { if (row) row.classList.remove("is-playing"); };
     synth.speak(u);
     if (!voice && !synth.getVoices().some((v) => /^ko/i.test(v.lang))) {
@@ -442,22 +442,30 @@
     lbl.className = "next-lbl";
     lbl.textContent = "Next";
     next.append(lbl);
-    picks.forEach((s) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = s.en;
-      b.setAttribute("aria-label", "Say next: " + s.en + ", " + s.ko);
-      b.addEventListener("click", () => speak(s));
-      next.append(b);
-    });
+    picks.forEach((s) => next.append(tile(s, () => speak(s))));
+  }
+
+  // A big say-it button: English over Korean
+  function tile(p, onTap) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tile";
+    b.setAttribute("aria-label", "Say: " + p.en + ", " + p.ko);
+    const en = document.createElement("span"); en.className = "en"; en.textContent = p.en;
+    const ko = document.createElement("span"); ko.className = "ko"; ko.lang = "ko"; ko.textContent = p.ko;
+    b.append(en, ko);
+    b.addEventListener("click", onTap);
+    return b;
   }
 
   function render() { renderChips(); renderList(); renderPlayer(); }
 
   // ---- Translating your own sentence (MyMemory; its machine translation is preferred) ----
   const HANGUL = /[가-힣]/;
-  async function translate(text) {
-    const url = "https://api.mymemory.translated.net/get?" + new URLSearchParams({ q: text, langpair: "en|ko" });
+  async function translate(text, from = "en", to = "ko") {
+    // A Korean answer must contain Hangul; an English one must not
+    const fits = (s) => typeof s === "string" && s.trim() !== "" && (to === "ko" ? HANGUL.test(s) : !HANGUL.test(s));
+    const url = "https://api.mymemory.translated.net/get?" + new URLSearchParams({ q: text, langpair: from + "|" + to });
     let res;
     try { res = await fetch(url); } catch (e) { throw new Error(navigator.onLine === false ? "offline" : "network"); }
     if (res.status === 429) throw new Error("limit");
@@ -465,10 +473,10 @@
     const data = await res.json();
     if (data.quotaFinished || String(data.responseStatus) === "429") throw new Error("limit");
     const found = Array.isArray(data.matches) ? data.matches : [];
-    const machine = found.find((m) => m["created-by"] === "MT!" && HANGUL.test(m.translation || ""));
+    const machine = found.find((m) => m["created-by"] === "MT!" && fits(m.translation));
     const top = data.responseData && data.responseData.translatedText;
-    const best = machine ? machine.translation : HANGUL.test(top || "") ? top
-      : (found.filter((m) => HANGUL.test(m.translation || "")).sort((a, b) => b.match - a.match)[0] || {}).translation;
+    const best = machine ? machine.translation : fits(top) ? top
+      : (found.filter((m) => fits(m.translation)).sort((a, b) => b.match - a.match)[0] || {}).translation;
     if (!best) throw new Error("empty");
     return new DOMParser().parseFromString(best, "text/html").documentElement.textContent;
   }
@@ -528,14 +536,188 @@
     q.focus();
   });
 
-  // ---- Slow voice ----
-  const slowBtn = $("slow");
-  slowBtn.setAttribute("aria-pressed", String(state.slow));
-  slowBtn.addEventListener("click", () => {
+  // ---- Slow voice (one setting, a button in the phrasebook and one in Talk mode) ----
+  const slowBtns = [$("slow"), $("m-slow")];
+  const showSlow = () => slowBtns.forEach((b) => b.setAttribute("aria-pressed", String(state.slow)));
+  showSlow();
+  slowBtns.forEach((b) => b.addEventListener("click", () => {
     state.slow = !state.slow;
-    slowBtn.setAttribute("aria-pressed", String(state.slow));
+    showSlow();
     store.set("malhaeSlow", state.slow);
+  }));
+
+  // ============ TALK MODE: face to face on one phone ============
+  // Their one-tap replies, in Korean, with what each means for me
+  const REPLIES = [
+    ["네", "Yes"], ["아니요", "No"], ["맞아요", "That's right"],
+    ["잠시만요", "One moment, please"], ["괜찮아요", "It's okay"], ["몰라요", "I don't know"],
+    ["있어요", "We have it / There is"], ["없어요", "We don't have it / There isn't"], ["안 돼요", "That's not possible"],
+    ["저쪽이에요", "It's over there"], ["여기예요", "It's here"], ["직진하세요", "Go straight"],
+    ["왼쪽으로 가세요", "Go left"], ["오른쪽으로 가세요", "Go right"], ["다시 말해 주세요", "Please say it again"],
+    ["카드 돼요", "Card is fine"], ["현금만 돼요", "Cash only"], ["감사합니다", "Thank you"]
+  ];
+  const AGAIN = "다시 말해 주세요";
+  // What I am most likely to say after each reply (English phrases from the phrasebook)
+  const AFTER_REPLY = {
+    "네": ["Thank you", "How much is it?", "This one, please", "How long does it take?"],
+    "아니요": ["Thank you", "I'm sorry", "Could you help me?", "Where is the subway station?"],
+    "맞아요": ["Thank you", "How much is it?", "How long does it take?", "This one, please"],
+    "잠시만요": ["Thank you", "Yes", "I understand", "Wait a moment, please"],
+    "괜찮아요": ["Thank you", "I'm sorry", "Goodbye (you are leaving)", "Nice to meet you"],
+    "몰라요": ["Thank you", "Could you help me?", "Where is the subway station?", "I'm lost"],
+    "있어요": ["This one, please", "How much is it?", "Can I pay by card?", "Thank you"],
+    "없어요": ["Thank you", "Do you have a bigger size?", "Where is a pharmacy?", "I'm sorry"],
+    "안 돼요": ["I'm sorry", "Thank you", "Could you help me?", "I don't understand"],
+    "저쪽이에요": ["Thank you", "How long does it take?", "Please write it down", "Left"],
+    "여기예요": ["Thank you", "How much is it?", "This one, please", "Please stop here"],
+    "직진하세요": ["Thank you", "How long does it take?", "Please speak slowly", "I understand"],
+    "왼쪽으로 가세요": ["Thank you", "How long does it take?", "I understand", "Please speak slowly"],
+    "오른쪽으로 가세요": ["Thank you", "How long does it take?", "I understand", "Please speak slowly"],
+    [AGAIN]: ["I don't speak Korean well", "Please write it down", "Please speak slowly", "Thank you"],
+    "카드 돼요": ["Receipt, please", "A bag, please", "Thank you", "To go, please"],
+    "현금만 돼요": ["I'm sorry", "Thank you", "Where is the exit?", "Could you help me?"],
+    "감사합니다": ["Thank you", "Goodbye (you are leaving)", "Goodbye (they are leaving)", "Nice to meet you"]
+  };
+  const START_TALK = ["Hello", "Excuse me (to call staff)", "Could you help me?", "I don't speak Korean well"];
+  // After a reply they typed themselves (no preset follow-ups), these fit almost any answer
+  const AFTER_TYPED = ["Thank you", "I understand", "Please speak slowly", "Could you say that again?"];
+  const talk = { turn: "me", mine: null, theirs: null, last: null, query: "" };
+  const byEn = (list) => list.map((en) => BY_ID.get("p:" + en)).filter(Boolean);
+
+  // The four tiles: matches while I type, otherwise what fits the conversation so far
+  function talkTiles() {
+    const text = talk.query.trim();
+    let picks = [];
+    if (text) {
+      const num = numberPhrase(text);
+      if (num) picks.push(num);
+      picks.push(...[...own.map(ownPhrase), ...BUILT_IN].filter((p) => [p.en, p.ko, p.rom || ""].some((s) => norm(s).includes(norm(text)))));
+    } else if (talk.last === "them" && talk.theirs) {
+      picks = byEn(AFTER_REPLY[talk.theirs.ko] || AFTER_TYPED);
+      if (talk.mine) picks.push(...suggestNext(talk.mine));
+    } else if (talk.mine) {
+      picks = suggestNext(talk.mine);
+    }
+    picks.push(...byEn(START_TALK));
+    const seen = new Set();
+    return picks.filter((p) => !seen.has(p.id) && seen.add(p.id) && (!talk.mine || text || p.id !== talk.mine.id)).slice(0, 4);
+  }
+
+  function renderTalk() {
+    $("talk").dataset.turn = talk.turn;
+    // Their half: what I said, in big Korean
+    const said = $("t-said");
+    said.classList.toggle("is-hint", !talk.mine);
+    said.textContent = talk.mine ? talk.mine.ko : "안녕하세요! 상대방이 하는 말이 여기에 한국어로 나와요. 아래 버튼으로 답해 주세요.";
+    $("t-replay").hidden = !talk.mine;
+    // My half: what they said, in big English
+    const heard = $("m-heard");
+    heard.replaceChildren();
+    if (talk.theirs) {
+      const en = document.createElement("p"); en.className = "en"; en.textContent = talk.theirs.en;
+      const ko = document.createElement("p"); ko.className = "ko"; ko.lang = "ko"; ko.textContent = "They said: " + talk.theirs.ko;
+      heard.append(en, ko);
+    } else {
+      const hint = document.createElement("p"); hint.className = "hint";
+      hint.textContent = talk.mine ? "Waiting for their answer. They tap a reply on their half." : "Tap what you want to say. It appears in Korean on the other half and is spoken aloud.";
+      heard.append(hint);
+    }
+    const tiles = $("m-tiles");
+    tiles.replaceChildren();
+    talkTiles().forEach((p) => tiles.append(tile(p, () => sayToThem(p))));
+  }
+
+  // I say something: spoken, and shown big on their half
+  function sayToThem(p) {
+    talk.mine = p;
+    talk.last = "me";
+    talk.query = "";
+    $("m-input").value = "";
+    $("m-note").textContent = "";
+    speak(p);
+    renderTalk();
+  }
+  // They answer: shown big on my half; "say it again" replays my phrase slowly
+  function theyReplied(ko, en) {
+    talk.theirs = { ko, en };
+    talk.last = "them";
+    if (ko === AGAIN && talk.mine) speak(talk.mine, { slow: true });
+    renderTalk();
+  }
+
+  // Their one-tap replies
+  const replies = $("t-replies");
+  REPLIES.forEach(([ko, en]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "reply";
+    b.textContent = ko;
+    b.addEventListener("click", () => theyReplied(ko, en));
+    replies.append(b);
   });
+  $("t-replay").addEventListener("click", () => talk.mine && speak(talk.mine));
+
+  // My typing: search as I type; Enter says the top match, a number, or translates my own sentence
+  $("m-input").addEventListener("input", (e) => { talk.query = e.target.value; $("m-note").textContent = ""; renderTalk(); });
+  $("m-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = talk.query.trim();
+    if (!text) return;
+    const exact = [...own.map(ownPhrase), ...BUILT_IN].find((p) => norm(p.en) === norm(text));
+    const num = numberPhrase(text);
+    if (num || exact) { sayToThem(num || exact); return; }
+    if (HANGUL.test(text)) { $("m-note").textContent = "Type in English here. Korean goes on the other half."; return; }
+    $("m-note").textContent = "Translating…";
+    try {
+      const ko = await translate(text, "en", "ko");
+      const p = { id: "o:" + text, en: text, ko };
+      own = [p, ...own.filter((o) => o.en !== text)].slice(0, 40);
+      saveOwn();
+      sayToThem(ownPhrase(p));
+    } catch (err) {
+      $("m-note").textContent = MESSAGES[err.message] || MESSAGES.network;
+    }
+  });
+
+  // Their typing: the halves swap so the keyboard is on their side; after sending, the turn comes back to me
+  $("t-type").addEventListener("click", () => { talk.turn = "them"; renderTalk(); });
+  $("m-back").addEventListener("click", () => { talk.turn = "me"; renderTalk(); });
+  $("t-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = $("t-input");
+    const ko = input.value.trim();
+    if (!ko) return;
+    $("t-note").textContent = "번역 중…";
+    try {
+      const en = await translate(ko, "ko", "en");
+      input.value = "";
+      $("t-note").textContent = "";
+      talk.turn = "me";
+      theyReplied(ko, en);
+    } catch (err) {
+      $("t-note").textContent = err.message === "limit" ? "오늘 무료 번역 한도를 다 썼어요. 위의 버튼으로 답해 주세요."
+        : "번역하지 못했어요. 위의 버튼으로 답해 주세요.";
+    }
+  });
+
+  // Opening and closing Talk mode
+  let talkFocus = null;
+  $("talk-open").addEventListener("click", () => {
+    talkFocus = document.activeElement;
+    talk.turn = "me";
+    $("talk").hidden = false;
+    document.body.classList.add("in-talk");
+    renderTalk();
+    $("talk-close").focus();
+  });
+  function closeTalk() {
+    $("talk").hidden = true;
+    document.body.classList.remove("in-talk");
+    render();
+    if (talkFocus) talkFocus.focus();
+  }
+  $("talk-close").addEventListener("click", closeTalk);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("talk").hidden && $("show").hidden) closeTalk(); });
 
   // ---- Player and Show ----
   $("replay").addEventListener("click", () => state.last && speak(state.last));
