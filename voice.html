@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Malhae Voice · Speak English or Korean</title>
+  <meta name="description" content="Face-to-face voice translation between English and Korean on one phone.">
+  <meta name="theme-color" content="#f5f5f2">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="voice.css">
+</head>
+<body class="voice-page">
+  <!-- Two halves on one phone: the Korean half is turned upside down to face the person across the table.
+       Each half has its own mic; what one person says appears translated on the other half and is spoken aloud. -->
+  <main class="vt">
+
+    <!-- ============ KOREAN HALF (faces the other person) ============ -->
+    <section class="vside vside--ko" lang="ko" data-lang="ko" aria-label="한국어">
+      <div class="vhead">
+        <p class="vlang">한국어</p>
+        <button class="btn vreplay" type="button" hidden>다시 듣기</button>
+      </div>
+      <div class="vmsg">
+        <p class="vmain"></p>
+        <p class="vorig"></p>
+      </div>
+      <p class="vlive" aria-live="polite"></p>
+      <div class="vmic-wrap">
+        <button class="vmic" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zM6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg>
+        </button>
+        <p class="vstatus" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- ============ ENGLISH HALF (faces me) ============ -->
+    <section class="vside vside--en" lang="en" data-lang="en" aria-label="English">
+      <div class="vhead">
+        <a class="btn" href="./">Phrasebook</a>
+        <button class="toggle" id="v-slow" type="button" aria-pressed="false">Slow</button>
+        <button class="btn vreplay" type="button" hidden>Replay</button>
+      </div>
+      <div class="vmsg">
+        <p class="vmain"></p>
+        <p class="vorig"></p>
+      </div>
+      <p class="vlive" aria-live="polite"></p>
+      <div class="vmic-wrap">
+        <button class="vmic" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zM6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg>
+        </button>
+        <p class="vstatus" aria-live="polite"></p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="voice.js"></script>
+</body>
+</html>
