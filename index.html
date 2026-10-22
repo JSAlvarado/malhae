@@ -35,7 +35,7 @@
     <!-- ============ FIND OR TYPE: one field filters the phrases and translates your own ============ -->
     <form class="find" id="find" role="search">
       <label class="sr-only" for="q">Find a phrase or type your own English</label>
-      <input id="q" type="search" maxlength="160" autocomplete="off" enterkeyhint="search" placeholder="Find a phrase or type your own">
+      <input id="q" type="search" maxlength="160" autocomplete="off" enterkeyhint="search" placeholder="Find a phrase, a number or your own">
       <button class="clear" id="clear" type="button" aria-label="Clear" hidden>×</button>
     </form>
 
@@ -48,14 +48,18 @@
 
   <!-- ============ NOW PLAYING: the last phrase stays one tap away ============ -->
   <section class="player" id="player" aria-label="Last phrase" hidden>
-    <div class="player-text">
-      <p class="player-ko" id="player-ko" lang="ko"></p>
-      <p class="player-en" id="player-en"></p>
+    <div class="player-top">
+      <div class="player-text">
+        <p class="player-ko" id="player-ko" lang="ko"></p>
+        <p class="player-en" id="player-en"></p>
+      </div>
+      <div class="player-btns">
+        <button class="btn btn--primary" id="replay" type="button">Replay</button>
+        <button class="btn" id="player-show" type="button">Show</button>
+      </div>
     </div>
-    <div class="player-btns">
-      <button class="btn btn--primary" id="replay" type="button">Replay</button>
-      <button class="btn" id="player-show" type="button">Show</button>
-    </div>
+    <!-- Suggested next: the usual next phrases, plus what you tend to tap next on this phone -->
+    <div class="next" id="next" role="group" aria-label="Suggested next phrases" hidden></div>
   </section>
 
   <!-- ============ SHOW: the Korean as large as the screen allows, for the other person ============ -->
