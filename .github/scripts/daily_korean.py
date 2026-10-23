@@ -8,8 +8,13 @@ Run by .github/workflows/daily-korean.yml at 06:00 and 20:00 Seoul time. Uses on
 Settings come from environment variables (GitHub secrets in the workflow):
   GMAIL_ADDRESS       the Gmail account that sends (and receives) the email
   GMAIL_APP_PASSWORD  a Gmail app password (not the normal password)
-  EDITION             "morning", "evening" or "auto" (auto picks by the time in Seoul)
+  EDITION             "morning", "evening" or "auto" (auto: the next brief, sent on time; see below)
   DRY_RUN=1           write the email to preview.html and print the text instead of sending it
+
+GitHub often starts scheduled runs late, sometimes by hours. So the workflow starts several runs well
+before each brief, and in "auto" the script waits until exactly 06:00 or 20:00 before sending. Each email
+has a fixed Message-ID per day and brief; a run first asks Gmail (IMAP) whether it was already sent, so
+the brief goes out once. A run that starts too long after a brief's time sends nothing.
 """
 
 import datetime
@@ -17,7 +22,9 @@ import html
 import json
 import os
 import re
+import imaplib
 import smtplib
+import time
 import urllib.request
 from email.message import EmailMessage
 from pathlib import Path
@@ -29,6 +36,9 @@ WEATHER_URL = (
     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
     "&timezone=Asia%2FSeoul&forecast_days=2"
 )
+# Send times in Seoul, and the window around each: runs start up to EARLY before and send up to LATE after
+SEND_AT = {"morning": datetime.time(6, 0), "evening": datetime.time(20, 0)}
+EARLY, LATE = datetime.timedelta(hours=4, minutes=30), datetime.timedelta(hours=3)
 RAIN_THRESHOLD = 50  # percent chance of rain that adds the umbrella reminder
 APP_JS = Path(__file__).resolve().parents[2] / "app.js"
 APP_URL = "https://jsalvarado.github.io/malhae/"
@@ -118,6 +128,35 @@ def phrase_block(phrase, label):
             f'</table></td></tr>')
 
 
+def next_brief(now):
+    """The brief this run is for and when to send it, or None if no brief is close enough."""
+    for edition, at in SEND_AT.items():
+        send_time = datetime.datetime.combine(now.date(), at, tzinfo=SEOUL)
+        if send_time - EARLY <= now < send_time + LATE:
+            return edition, send_time
+    return None
+
+
+def message_id(day, edition):
+    return f"<malhae-daily-{day:%Y-%m-%d}-{edition}@malhae.github.io>"
+
+
+def already_sent(address, password, msg_id):
+    """Ask Gmail whether an email with this Message-ID exists, so a brief goes out only once."""
+    try:
+        with imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=30) as imap:
+            imap.login(address, password)
+            # "All Mail" has a different name in each language; find it by its \All flag
+            _, boxes = imap.list()
+            all_mail = next((b.decode().rsplit(' "/" ', 1)[1] for b in boxes if b"\\All" in b), "INBOX")
+            imap.select(all_mail, readonly=True)
+            _, found = imap.search(None, "X-GM-RAW", f'"rfc822msgid:{msg_id.strip("<>")}"')
+            return bool(found and found[0].split())
+    except (imaplib.IMAP4.error, OSError) as error:
+        print(f"Could not check Gmail for an earlier send ({error}); sending anyway.")
+        return False
+
+
 def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
     today, tomorrow = weather
     morning = edition == "morning"
@@ -180,6 +219,7 @@ def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
                       f"{today_phrase[1] if morning else tomorrow_phrase[1]}")
     msg["From"] = f"Malhae Daily <{address}>"
     msg["To"] = address
+    msg["Message-ID"] = message_id(today["date"], edition)
     msg.set_content("\n".join(lines))
     msg.add_alternative(html_doc, subtype="html")
     return msg
@@ -188,23 +228,47 @@ def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
 def main():
     now = datetime.datetime.now(SEOUL)
     edition = os.environ.get("EDITION", "auto").strip().lower()
-    if edition not in ("morning", "evening"):
-        edition = "morning" if now.hour < 12 else "evening"
+    dry_run = os.environ.get("DRY_RUN") == "1"
+    address = os.environ.get("GMAIL_ADDRESS", "you@example.com")
+    password = os.environ.get("GMAIL_APP_PASSWORD")
+    if not dry_run and (not password or "GMAIL_ADDRESS" not in os.environ):
+        raise SystemExit("Set the GMAIL_ADDRESS and GMAIL_APP_PASSWORD secrets in the repository settings.")
+
+    if edition in ("morning", "evening"):
+        auto = False  # a manual test: send this brief right away
+    else:
+        auto = True
+        brief = next_brief(now)
+        if dry_run and not brief:
+            brief = ("morning" if now.hour < 12 else "evening", now)
+        if not brief:
+            print(f"It is {now:%H:%M} in Seoul, too far from 06:00 and 20:00; nothing to send.")
+            return
+        edition, send_time = brief
+        if not dry_run:
+            if already_sent(address, password, message_id(send_time.date(), edition)):
+                print(f"The {edition} brief for {send_time:%d %b} was already sent.")
+                return
+            wait = (send_time - datetime.datetime.now(SEOUL)).total_seconds()
+            if wait > 0:
+                print(f"Waiting until {send_time:%H:%M} Seoul time ({wait / 60:.0f} minutes) to send the {edition} brief.")
+                time.sleep(wait)
+            now = datetime.datetime.now(SEOUL)
+
     phrases = load_phrases()
     today = now.date()
     weather = get_weather()
-    address = os.environ.get("GMAIL_ADDRESS", "you@example.com")
     msg = build_email(edition, weather, phrase_for(today, phrases), phrase_for(today + datetime.timedelta(days=1), phrases), address)
 
-    if os.environ.get("DRY_RUN") == "1":
+    if dry_run:
         Path(os.environ.get("PREVIEW", "preview.html")).write_text(msg.get_body(preferencelist=("html",)).get_content(), encoding="utf-8")
         print("Subject:", msg["Subject"])
         print(msg.get_body(preferencelist=("plain",)).get_content())
         return
 
-    password = os.environ.get("GMAIL_APP_PASSWORD")
-    if not password or "GMAIL_ADDRESS" not in os.environ:
-        raise SystemExit("Set the GMAIL_ADDRESS and GMAIL_APP_PASSWORD secrets in the repository settings.")
+    if auto and already_sent(address, password, msg["Message-ID"]):  # another run sent it while this one waited
+        print(f"The {edition} brief was already sent.")
+        return
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
         smtp.login(address, password)
         smtp.send_message(msg)

@@ -4,13 +4,15 @@ name: Daily Korean email
 
 on:
   schedule:
-    - cron: "0 21 * * *"   # 21:00 UTC = 06:00 in Seoul: the morning brief
-    - cron: "0 11 * * *"   # 11:00 UTC = 20:00 in Seoul: the evening brief
-    # GitHub may start scheduled runs a few minutes late; the script picks the brief by the time in Seoul
+    # GitHub often starts scheduled runs late, sometimes by hours, so each brief gets four early starts.
+    # A run waits until exactly 06:00 or 20:00 Seoul time, and the brief is sent only once.
+    # Times are UTC (Seoul is UTC+9); odd minutes avoid the busy top of the hour.
+    - cron: "7 17,18,19,20 * * *"   # 02:07–05:07 in Seoul: the 06:00 morning brief
+    - cron: "7 7,8,9,10 * * *"      # 16:07–19:07 in Seoul: the 20:00 evening brief
   workflow_dispatch:        # a "Run workflow" button on the Actions tab, for testing
     inputs:
       edition:
-        description: "Which brief to send"
+        description: "Which brief to send (auto waits for the next send time; morning or evening sends now)"
         type: choice
         options: [auto, morning, evening]
         default: auto
@@ -18,15 +20,20 @@ on:
 permissions:
   contents: read
 
+# One run at a time: while one waits for the send time, the next waits in line, then sees the email was sent
+concurrency:
+  group: daily-korean-email
+  cancel-in-progress: false
+
 jobs:
   send:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 300    # a run may wait up to about four hours for the send time
     steps:
       - name: Get the repository (the script and Malhae's phrasebook)
         uses: actions/checkout@v4
 
-      - name: Send the email
+      - name: Send the email at 06:00 or 20:00 Seoul time
         run: python3 .github/scripts/daily_korean.py
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
