@@ -12,9 +12,9 @@ Settings come from environment variables (GitHub secrets in the workflow):
   DRY_RUN=1           write the email to preview.html and print the text instead of sending it
 
 GitHub often starts scheduled runs late, sometimes by hours. So the workflow starts several runs well
-before each brief, and in "auto" the script waits until exactly 06:00 or 20:00 before sending. Each email
-has a fixed Message-ID per day and brief; a run first asks Gmail (IMAP) whether it was already sent, so
-the brief goes out once. A run that starts too long after a brief's time sends nothing.
+before each brief, and in "auto" the script waits until exactly 06:00 or 20:00 before sending. A run
+first asks Gmail (IMAP) whether that brief was already sent since its window opened, so it goes out once.
+(Gmail picks the Message-ID: a custom one made Gmail file the email under Sent only, not the inbox.) A run that starts too long after a brief's time sends nothing.
 """
 
 import datetime
@@ -137,12 +137,9 @@ def next_brief(now):
     return None
 
 
-def message_id(day, edition):
-    return f"<malhae-daily-{day:%Y-%m-%d}-{edition}@malhae.github.io>"
-
-
-def already_sent(address, password, msg_id):
-    """Ask Gmail whether an email with this Message-ID exists, so a brief goes out only once."""
+def already_sent(address, password, edition, send_time):
+    """Ask Gmail whether this brief was sent since its window opened, so it goes out only once."""
+    since = int((send_time - EARLY).timestamp())  # Gmail reads a number after "after:" as Unix time
     try:
         with imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=30) as imap:
             imap.login(address, password)
@@ -150,7 +147,8 @@ def already_sent(address, password, msg_id):
             _, boxes = imap.list()
             all_mail = next((b.decode().rsplit(' "/" ', 1)[1] for b in boxes if b"\\All" in b), "INBOX")
             imap.select(all_mail, readonly=True)
-            _, found = imap.search(None, "X-GM-RAW", f'"rfc822msgid:{msg_id.strip("<>")}"')
+            query = f'from:me subject:"Malhae {edition} brief" after:{since}'
+            _, found = imap.search(None, "X-GM-RAW", '"' + query.replace('"', '\\"') + '"')
             return bool(found and found[0].split())
     except (imaplib.IMAP4.error, OSError) as error:
         print(f"Could not check Gmail for an earlier send ({error}); sending anyway.")
@@ -219,7 +217,6 @@ def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
                       f"{today_phrase[1] if morning else tomorrow_phrase[1]}")
     msg["From"] = f"Malhae Daily <{address}>"
     msg["To"] = address
-    msg["Message-ID"] = message_id(today["date"], edition)
     msg.set_content("\n".join(lines))
     msg.add_alternative(html_doc, subtype="html")
     return msg
@@ -246,7 +243,7 @@ def main():
             return
         edition, send_time = brief
         if not dry_run:
-            if already_sent(address, password, message_id(send_time.date(), edition)):
+            if already_sent(address, password, edition, send_time):
                 print(f"The {edition} brief for {send_time:%d %b} was already sent.")
                 return
             wait = (send_time - datetime.datetime.now(SEOUL)).total_seconds()
@@ -266,7 +263,7 @@ def main():
         print(msg.get_body(preferencelist=("plain",)).get_content())
         return
 
-    if auto and already_sent(address, password, msg["Message-ID"]):  # another run sent it while this one waited
+    if auto and already_sent(address, password, edition, send_time):  # another run sent it while this one waited
         print(f"The {edition} brief was already sent.")
         return
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
