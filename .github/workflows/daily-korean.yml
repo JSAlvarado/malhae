@@ -1,14 +1,15 @@
-# Malhae Daily: a morning brief at 06:00 and an evening brief at 20:00 Seoul time.
+# Malhae Daily: a morning brief at 06:00 and an evening brief at 20:00, local time wherever you are.
 # The script is .github/scripts/daily_korean.py; the Gmail details are repository secrets, never in the code.
+# Where you are: the MALHAE_LOCATION repository variable (Settings > Secrets and variables > Actions >
+# Variables), a city such as "Busan" or "Paris, France". It sets the weather and the time zone. Default: Seoul.
 name: Daily Korean email
 
 on:
   schedule:
-    # GitHub often starts scheduled runs late, sometimes by hours, so each brief gets four early starts.
-    # A run waits until exactly 06:00 or 20:00 Seoul time, and the brief is sent only once.
-    # Times are UTC (Seoul is UTC+9); odd minutes avoid the busy top of the hour.
-    - cron: "7 17,18,19,20 * * *"   # 02:07–05:07 in Seoul: the 06:00 morning brief
-    - cron: "7 7,8,9,10 * * *"      # 16:07–19:07 in Seoul: the 20:00 evening brief
+    # A start every hour, so the briefs follow your time zone. GitHub often starts scheduled runs late or
+    # skips them; a run that starts shortly before 06:00 or 20:00 local time waits for it, the others
+    # exit in seconds, and each brief is sent only once. Odd minutes avoid the busy top of the hour.
+    - cron: "7 * * * *"
   workflow_dispatch:        # a "Run workflow" button on the Actions tab, for testing
     inputs:
       edition:
@@ -28,14 +29,15 @@ concurrency:
 jobs:
   send:
     runs-on: ubuntu-latest
-    timeout-minutes: 300    # a run may wait up to about four hours for the send time
+    timeout-minutes: 200    # a run may wait up to two and a half hours for the send time
     steps:
       - name: Get the repository (the script and Malhae's phrasebook)
         uses: actions/checkout@v4
 
-      - name: Send the email at 06:00 or 20:00 Seoul time
+      - name: Send the email at 06:00 or 20:00 local time
         run: python3 .github/scripts/daily_korean.py
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          LOCATION: ${{ vars.MALHAE_LOCATION || 'Seoul' }}
           EDITION: ${{ inputs.edition || 'auto' }}

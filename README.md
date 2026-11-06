@@ -18,7 +18,7 @@ translation. Built by Johnstheward S. Alvarado as an installable web app (PWA).
 | **Voice mode** | Each half has its own mic. Speech is recognised in that half's language, translated, shown on the other half and spoken aloud. |
 | **Show** | Fills the screen with the Korean text for the other person to read. |
 | **Offline and installable** | A service worker keeps the app, its typeface and the phrasebook on the phone; Add to Home Screen installs it. |
-| **Malhae Daily** | A GitHub Actions automation that emails a morning brief (06:00) and an evening brief (20:00) with Seoul's weather and a phrase from the phrasebook. |
+| **Malhae Daily** | A GitHub Actions automation that emails a morning brief (06:00) and an evening brief (20:00), local time, with the weather where you are and a phrase from the phrasebook. Set your city in the `MALHAE_LOCATION` repository variable (Seoul by default). |
 
 ## How it is built
 
@@ -30,7 +30,7 @@ translation. Built by Johnstheward S. Alvarado as an installable web app (PWA).
 - **Design:** an app-screen style with neutral surfaces and colour only on the Korean text, set in IBM Plex Sans KR
   for both English and Korean.
 - **Automation:** `.github/workflows/daily-korean.yml` runs `.github/scripts/daily_korean.py` (Python standard
-  library only) on a schedule. It fetches the forecast from Open-Meteo, picks the day's phrase from `app.js`, adds
+  library only) on a schedule. It looks up your city and fetches its forecast from Open-Meteo, picks the day's phrase from `app.js`, adds
   an umbrella reminder on rainy days and sends an HTML email through Gmail. Credentials are repository secrets.
 - **Tested** in WebKit at phone sizes, including simulated speech recognition and network failures.
 
