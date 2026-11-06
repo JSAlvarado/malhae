@@ -1,6 +1,7 @@
-"""Malhae Daily: a morning and an evening email with Seoul's weather and a phrase from Malhae's phrasebook.
+"""Malhae Daily: a morning and an evening email with your location's weather and a phrase from Malhae's phrasebook.
 
-Run by .github/workflows/daily-korean.yml at 06:00 and 20:00 Seoul time. Uses only Python's standard library.
+Run by .github/workflows/daily-korean.yml at 06:00 and 20:00 local time wherever you are (set by LOCATION).
+Uses only Python's standard library.
 
   Morning brief (06:00): today's weather and today's phrase.
   Evening brief (20:00): tomorrow's weather, a review of today's phrase and a preview of tomorrow's.
@@ -8,13 +9,16 @@ Run by .github/workflows/daily-korean.yml at 06:00 and 20:00 Seoul time. Uses on
 Settings come from environment variables (GitHub secrets in the workflow):
   GMAIL_ADDRESS       the Gmail account that sends (and receives) the email
   GMAIL_APP_PASSWORD  a Gmail app password (not the normal password)
+  LOCATION            where you are: a city, optionally with region or country ("Busan", "Paris, France");
+                      sets the weather and the time zone of the send times. Default: Seoul
   EDITION             "morning", "evening" or "auto" (auto: the next brief, sent on time; see below)
   DRY_RUN=1           write the email to preview.html and print the text instead of sending it
 
-GitHub often starts scheduled runs late, sometimes by hours. So the workflow starts several runs well
-before each brief, and in "auto" the script waits until exactly 06:00 or 20:00 before sending. A run
+GitHub often starts scheduled runs late, sometimes by hours. So the workflow starts a run every hour,
+and in "auto" a run that starts shortly before 06:00 or 20:00 local time waits until then to send. A run
 first asks Gmail (IMAP) whether that brief was already sent since its window opened, so it goes out once.
-(Gmail picks the Message-ID: a custom one made Gmail file the email under Sent only, not the inbox.) A run that starts too long after a brief's time sends nothing.
+(Gmail picks the Message-ID: a custom one made Gmail file the email under Sent only, not the inbox.)
+A run that starts too long after a brief's time sends nothing.
 """
 
 import datetime
@@ -25,20 +29,23 @@ import re
 import imaplib
 import smtplib
 import time
+import urllib.parse
 import urllib.request
 from email.message import EmailMessage
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SEOUL = ZoneInfo("Asia/Seoul")
+SEOUL = {"name": "Seoul", "latitude": 37.5665, "longitude": 126.978, "timezone": "Asia/Seoul"}
+GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&format=json&name="
 WEATHER_URL = (
-    "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.978"
+    "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}"
     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
-    "&timezone=Asia%2FSeoul&forecast_days=2"
+    "&timezone={timezone}&forecast_days=2"
 )
-# Send times in Seoul, and the window around each: runs start up to EARLY before and send up to LATE after
+# Local send times, and the window around each: a run waits if it starts up to EARLY before, and still
+# sends up to LATE after. EARLY is under three hours so only one hourly run waits and one queues behind it.
 SEND_AT = {"morning": datetime.time(6, 0), "evening": datetime.time(20, 0)}
-EARLY, LATE = datetime.timedelta(hours=4, minutes=30), datetime.timedelta(hours=3)
+EARLY, LATE = datetime.timedelta(hours=2, minutes=30), datetime.timedelta(hours=3)
 RAIN_THRESHOLD = 50  # percent chance of rain that adds the umbrella reminder
 APP_JS = Path(__file__).resolve().parents[2] / "app.js"
 APP_URL = "https://jsalvarado.github.io/malhae/"
@@ -72,9 +79,38 @@ def phrase_for(day, phrases):
     return phrases[day.toordinal() % len(phrases)]
 
 
-def get_weather():
-    """Today's and tomorrow's forecast for Seoul."""
-    with urllib.request.urlopen(WEATHER_URL, timeout=20) as response:
+def get_json(url):
+    with urllib.request.urlopen(url, timeout=20) as response:
+        return json.load(response)
+
+
+def find_place(query):
+    """Look up LOCATION ("Busan", "Paris, France") with Open-Meteo's geocoding; Seoul if it can't be found."""
+    name, *rest = [part.strip() for part in query.split(",")]
+    if not name or name.lower() == "seoul":
+        return SEOUL
+    try:
+        results = get_json(GEOCODE_URL + urllib.parse.quote(name)).get("results") or []
+    except (OSError, ValueError) as error:
+        print(f"Could not look up {query!r} ({error}); using Seoul.")
+        return SEOUL
+    # "Paris, France" or "Portland, Oregon": keep the matches whose country or region fits the rest
+    wanted = [r.lower() for r in rest if r]
+    for place in results:
+        where = " ".join(str(place.get(k, "")) for k in ("country", "country_code", "admin1", "admin2")).lower()
+        if all(w in where for w in wanted) and place.get("timezone"):
+            label = place["name"] + (f', {place["country"]}' if place.get("country") and place.get("country_code") != "KR" else "")
+            return {"name": label, "latitude": place["latitude"], "longitude": place["longitude"],
+                    "timezone": place["timezone"]}
+    print(f"No place called {query!r} was found; using Seoul.")
+    return SEOUL
+
+
+def get_weather(place):
+    """Today's and tomorrow's forecast for the place."""
+    url = WEATHER_URL.format(latitude=place["latitude"], longitude=place["longitude"],
+                             timezone=urllib.parse.quote(place["timezone"], safe=""))
+    with urllib.request.urlopen(url, timeout=20) as response:
         d = json.load(response)["daily"]
     return [
         {
@@ -131,7 +167,7 @@ def phrase_block(phrase, label):
 def next_brief(now):
     """The brief this run is for and when to send it, or None if no brief is close enough."""
     for edition, at in SEND_AT.items():
-        send_time = datetime.datetime.combine(now.date(), at, tzinfo=SEOUL)
+        send_time = datetime.datetime.combine(now.date(), at, tzinfo=now.tzinfo)
         if send_time - EARLY <= now < send_time + LATE:
             return edition, send_time
     return None
@@ -155,7 +191,7 @@ def already_sent(address, password, edition, send_time):
         return False
 
 
-def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
+def build_email(edition, place, weather, today_phrase, tomorrow_phrase, address):
     today, tomorrow = weather
     morning = edition == "morning"
     w = today if morning else tomorrow
@@ -165,7 +201,8 @@ def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
                 ) if w["rain"] >= RAIN_THRESHOLD else ""
     title = "Morning brief" if morning else "Evening brief"
     date_line = f"{today['date']:%A, %d %B %Y}"
-    weather_label = f"Seoul weather today, {today['date']:%a %d %b}" if morning else f"Seoul weather tomorrow, {tomorrow['date']:%a %d %b}"
+    city = place["name"]
+    weather_label = f"{city} weather today, {today['date']:%a %d %b}" if morning else f"{city} weather tomorrow, {tomorrow['date']:%a %d %b}"
     intro = ("Good morning. Here is today's weather and your Korean phrase for the day."
              if morning else "Good evening. Here is tomorrow's weather, a quick review of today's phrase and a preview of tomorrow's.")
 
@@ -189,7 +226,8 @@ def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
         f'background:{INK};color:#ffffff;border-radius:999px;text-decoration:none;font:600 14px/1 {FONT}">'
         f'Hear it in Malhae</a></td></tr>',
         f'<tr><td style="padding:24px 24px 28px;border-top:1px solid {LINE};font:400 12px/1.6 {FONT};color:{MUTED}">'
-        f'Sent automatically at 06:00 and 20:00 Seoul time by a GitHub Actions workflow in the Malhae repository. '
+        f'Sent automatically at 06:00 and 20:00 local time in {html.escape(city)} by a GitHub Actions workflow in the '
+        f'Malhae repository. Change the place with the MALHAE_LOCATION repository variable. '
         f'Weather data: Open-Meteo.</td></tr>',
     ]
     html_doc = (f'<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;padding:0;background:{GROUND}">'
@@ -213,7 +251,7 @@ def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
     lines += ["", f"Hear it in Malhae: {APP_URL}"]
 
     msg = EmailMessage()
-    msg["Subject"] = (f"Malhae {title.lower()} · {w['condition']}, {w['high']}°C · "
+    msg["Subject"] = (f"Malhae {title.lower()} · {city}: {w['condition']}, {w['high']}°C · "
                       f"{today_phrase[1] if morning else tomorrow_phrase[1]}")
     msg["From"] = f"Malhae Daily <{address}>"
     msg["To"] = address
@@ -223,7 +261,10 @@ def build_email(edition, weather, today_phrase, tomorrow_phrase, address):
 
 
 def main():
-    now = datetime.datetime.now(SEOUL)
+    place = find_place(os.environ.get("LOCATION", "") or "Seoul")
+    zone = ZoneInfo(place["timezone"])
+    now = datetime.datetime.now(zone)
+    print(f"Location: {place['name']} ({place['timezone']}), local time {now:%H:%M}.")
     edition = os.environ.get("EDITION", "auto").strip().lower()
     dry_run = os.environ.get("DRY_RUN") == "1"
     address = os.environ.get("GMAIL_ADDRESS", "you@example.com")
@@ -239,23 +280,23 @@ def main():
         if dry_run and not brief:
             brief = ("morning" if now.hour < 12 else "evening", now)
         if not brief:
-            print(f"It is {now:%H:%M} in Seoul, too far from 06:00 and 20:00; nothing to send.")
+            print(f"It is {now:%H:%M} in {place['name']}, too far from 06:00 and 20:00; nothing to send.")
             return
         edition, send_time = brief
         if not dry_run:
             if already_sent(address, password, edition, send_time):
                 print(f"The {edition} brief for {send_time:%d %b} was already sent.")
                 return
-            wait = (send_time - datetime.datetime.now(SEOUL)).total_seconds()
+            wait = (send_time - datetime.datetime.now(zone)).total_seconds()
             if wait > 0:
-                print(f"Waiting until {send_time:%H:%M} Seoul time ({wait / 60:.0f} minutes) to send the {edition} brief.")
+                print(f"Waiting until {send_time:%H:%M} local time ({wait / 60:.0f} minutes) to send the {edition} brief.")
                 time.sleep(wait)
-            now = datetime.datetime.now(SEOUL)
+            now = datetime.datetime.now(zone)
 
     phrases = load_phrases()
     today = now.date()
-    weather = get_weather()
-    msg = build_email(edition, weather, phrase_for(today, phrases), phrase_for(today + datetime.timedelta(days=1), phrases), address)
+    weather = get_weather(place)
+    msg = build_email(edition, place, weather, phrase_for(today, phrases), phrase_for(today + datetime.timedelta(days=1), phrases), address)
 
     if dry_run:
         Path(os.environ.get("PREVIEW", "preview.html")).write_text(msg.get_body(preferencelist=("html",)).get_content(), encoding="utf-8")
