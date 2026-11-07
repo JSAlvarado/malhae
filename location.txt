@@ -1,0 +1,2 @@
+# Malhae Daily location: type your city on a line below, e.g. Busan or Paris, France.
+# The emails then use its weather and go out at 06:00 and 20:00 in its time zone. Empty means Seoul.

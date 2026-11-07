@@ -10,7 +10,8 @@ Settings come from environment variables (GitHub secrets in the workflow):
   GMAIL_ADDRESS       the Gmail account that sends (and receives) the email
   GMAIL_APP_PASSWORD  a Gmail app password (not the normal password)
   LOCATION            where you are: a city, optionally with region or country ("Busan", "Paris, France");
-                      sets the weather and the time zone of the send times. Default: Seoul
+                      sets the weather and the time zone of the send times. When it is empty, the first
+                      line of location.txt in the repository is used, and Seoul if that is empty too
   EDITION             "morning", "evening" or "auto" (auto: the next brief, sent on time; see below)
   DRY_RUN=1           write the email to preview.html and print the text instead of sending it
 
@@ -48,6 +49,7 @@ SEND_AT = {"morning": datetime.time(6, 0), "evening": datetime.time(20, 0)}
 EARLY, LATE = datetime.timedelta(hours=2, minutes=30), datetime.timedelta(hours=3)
 RAIN_THRESHOLD = 50  # percent chance of rain that adds the umbrella reminder
 APP_JS = Path(__file__).resolve().parents[2] / "app.js"
+LOCATION_FILE = APP_JS.with_name("location.txt")
 APP_URL = "https://jsalvarado.github.io/malhae/"
 
 # Weather codes from Open-Meteo (WMO standard), in plain words
@@ -104,6 +106,20 @@ def find_place(query):
                     "timezone": place["timezone"]}
     print(f"No place called {query!r} was found; using Seoul.")
     return SEOUL
+
+
+def where_you_are():
+    """LOCATION from the workflow, else the first line of location.txt that isn't a # comment, else Seoul."""
+    query = os.environ.get("LOCATION", "").strip()
+    if query:
+        return query
+    if LOCATION_FILE.exists():
+        lines = [line.strip() for line in LOCATION_FILE.read_text(encoding="utf-8").splitlines()]
+        query = next((line for line in lines if line and not line.startswith("#")), "")
+        if query:
+            return query
+    print("No location set (MALHAE_LOCATION variable or location.txt); using Seoul.")
+    return "Seoul"
 
 
 def get_weather(place):
@@ -227,7 +243,7 @@ def build_email(edition, place, weather, today_phrase, tomorrow_phrase, address)
         f'Hear it in Malhae</a></td></tr>',
         f'<tr><td style="padding:24px 24px 28px;border-top:1px solid {LINE};font:400 12px/1.6 {FONT};color:{MUTED}">'
         f'Sent automatically at 06:00 and 20:00 local time in {html.escape(city)} by a GitHub Actions workflow in the '
-        f'Malhae repository. Change the place with the MALHAE_LOCATION repository variable. '
+        f'Malhae repository. Change the place in location.txt in the repository. '
         f'Weather data: Open-Meteo.</td></tr>',
     ]
     html_doc = (f'<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;padding:0;background:{GROUND}">'
@@ -261,7 +277,7 @@ def build_email(edition, place, weather, today_phrase, tomorrow_phrase, address)
 
 
 def main():
-    place = find_place(os.environ.get("LOCATION", "") or "Seoul")
+    place = find_place(where_you_are())
     zone = ZoneInfo(place["timezone"])
     now = datetime.datetime.now(zone)
     print(f"Location: {place['name']} ({place['timezone']}), local time {now:%H:%M}.")
