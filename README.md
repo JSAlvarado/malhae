@@ -18,7 +18,7 @@ translation. Built by Johnstheward S. Alvarado as an installable web app (PWA).
 | **Voice mode** | Each half has its own mic. Speech is recognised in that half's language, translated, shown on the other half and spoken aloud. |
 | **Show** | Fills the screen with the Korean text for the other person to read. |
 | **Offline and installable** | A service worker keeps the app, its typeface and the phrasebook on the phone; Add to Home Screen installs it. |
-| **Malhae Daily** | A GitHub Actions automation that emails a morning brief (06:00) and an evening brief (20:00), local time, with the weather where you are and a phrase from the phrasebook. Type your city in `location.txt` (Seoul by default). |
+| **Malhae Daily** | A GitHub Actions automation that emails a morning brief (06:00) and an evening brief (20:00), local time, with the weather where you are and a phrase from the phrasebook. Your phone sets the place: open **Daily email location** at the bottom of the phrasebook (Seoul until it is set up). |
 
 ## How it is built
 
@@ -38,6 +38,7 @@ translation. Built by Johnstheward S. Alvarado as an installable web app (PWA).
 |---|---|
 | `index.html`, `style.css`, `app.js` | The phrasebook, the player, Show and Talk mode |
 | `voice.html`, `voice.css`, `voice.js` | Voice mode |
+| `daily.html`, `daily.css`, `daily.js` | Sends the phone's location to Malhae Daily (through a secret gist) |
 | `sw.js`, `manifest.webmanifest`, icons | Offline support and installation |
 | `.github/` | The Malhae Daily email automation |
 

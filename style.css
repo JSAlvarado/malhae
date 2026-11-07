@@ -143,6 +143,7 @@ body.has-player .screen { padding-bottom: 260px; }
 
 /* ============ CREDIT ============ */
 .credit { padding: 0 var(--pad) 24px; color: var(--muted); font-size: 12px; }
+.credit a { color: inherit; font-weight: 600; }
 body.has-player .credit { padding-bottom: 270px; }
 
 /* ============ TALK MODE ============ */
