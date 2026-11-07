@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Malhae Daily · Your location</title>
+  <meta name="description" content="Send your phone's location to the Malhae Daily emails.">
+  <meta name="theme-color" content="#f5f5f2">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="daily.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Malhae home">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 6h22a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H14l-6 5v-5H5a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3z"/><text x="16" y="19.5" text-anchor="middle">말</text></svg>
+      <span>Malhae</span>
+    </a>
+    <a class="btn" href="./">Done</a>
+  </header>
+
+  <main class="screen daily">
+    <div class="title-row">
+      <h1>Daily email location</h1>
+      <p class="finding">Malhae Daily uses your phone's location for the weather and the 06:00 and 20:00 send times.</p>
+    </div>
+
+    <!-- ============ NOW: where the emails think you are ============ -->
+    <section class="card">
+      <p class="card-lbl">Location the emails use</p>
+      <p class="where" id="where">Not set yet (the emails use Seoul)</p>
+      <p class="when" id="when"></p>
+      <button class="btn btn--primary btn--wide" id="update" type="button">Update my location now</button>
+      <p class="status" id="status" aria-live="polite"></p>
+    </section>
+
+    <!-- ============ SET-UP: done once ============ -->
+    <section class="card">
+      <p class="card-lbl">Set-up (once)</p>
+      <ol class="steps">
+        <li>On GitHub, create a fine-grained token: <b>Settings → Developer settings → Personal access tokens →
+          Fine-grained tokens → Generate new token</b>. Under <b>Account permissions</b>, set <b>Gists</b> to
+          <b>Read and write</b>. It needs nothing else.</li>
+        <li>Paste the token here and tap <b>Save</b>. It stays on this phone only.</li>
+        <li>Tap <b>Update my location now</b> and allow location. Malhae makes a secret gist for it and shows its ID below.</li>
+        <li>In the malhae repository: <b>Settings → Secrets and variables → Actions → New repository secret</b>,
+          name <code>MALHAE_LOCATION_GIST</code>, value: the gist ID.</li>
+      </ol>
+      <form class="token" id="token-form">
+        <label class="sr-only" for="token">GitHub token</label>
+        <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+        <button class="btn btn--primary" type="submit">Save</button>
+      </form>
+      <div class="gist" id="gist-row" hidden>
+        <p class="card-lbl">Gist ID (the secret's value)</p>
+        <p class="gist-id"><code id="gist-id"></code> <button class="btn" id="copy" type="button">Copy</button></p>
+      </div>
+      <label class="auto"><input type="checkbox" id="auto"> Update quietly each time I open Malhae</label>
+      <button class="text-btn" id="forget" type="button">Forget the token on this phone</button>
+    </section>
+
+    <p class="fine">Your location is rounded to about 1 km. It goes only to your own secret gist, and its town
+      name comes from BigDataCloud's free lookup. The Actions logs never show it. The emails can only use the
+      last place your phone sent, so open Malhae when you arrive somewhere new.</p>
+  </main>
+
+  <script src="daily.js"></script>
+</body>
+</html>

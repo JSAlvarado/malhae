@@ -1,8 +1,8 @@
 # Malhae Daily: a morning brief at 06:00 and an evening brief at 20:00, local time wherever you are.
 # The script is .github/scripts/daily_korean.py; the Gmail details are repository secrets, never in the code.
-# Where you are: a city such as "Busan" or "Paris, France" on the first line of location.txt, or in a
-# MALHAE_LOCATION repository variable or secret (which win over the file). It sets the weather and the
-# time zone. Default: Seoul.
+# Where you are: your phone's location, which the Malhae app (daily.html) saves in a secret gist whose ID is
+# the MALHAE_LOCATION_GIST repository secret. Without it: a city in a MALHAE_LOCATION variable or secret, or on
+# the first line of location.txt. It sets the weather and the time zone. Default: Seoul.
 name: Daily Korean email
 
 on:
@@ -40,5 +40,7 @@ jobs:
         env:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          LOCATION_GIST: ${{ secrets.MALHAE_LOCATION_GIST }}
+          GITHUB_TOKEN: ${{ github.token }}
           LOCATION: ${{ vars.MALHAE_LOCATION || secrets.MALHAE_LOCATION }}
           EDITION: ${{ inputs.edition || 'auto' }}

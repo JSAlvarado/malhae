@@ -9,9 +9,11 @@ Uses only Python's standard library.
 Settings come from environment variables (GitHub secrets in the workflow):
   GMAIL_ADDRESS       the Gmail account that sends (and receives) the email
   GMAIL_APP_PASSWORD  a Gmail app password (not the normal password)
-  LOCATION            where you are: a city, optionally with region or country ("Busan", "Paris, France");
-                      sets the weather and the time zone of the send times. When it is empty, the first
-                      line of location.txt in the repository is used, and Seoul if that is empty too
+  LOCATION_GIST       the ID of the secret gist where the Malhae app (daily.html) saves your phone's
+                      location; it sets the weather and the time zone of the send times. Read with GITHUB_TOKEN
+  LOCATION            used when there is no phone location: a city, optionally with region or country
+                      ("Busan", "Paris, France"). When it is empty too, the first line of location.txt in the
+                      repository is used, and Seoul if that is empty as well
   EDITION             "morning", "evening" or "auto" (auto: the next brief, sent on time; see below)
   DRY_RUN=1           write the email to preview.html and print the text instead of sending it
 
@@ -37,6 +39,9 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 SEOUL = {"name": "Seoul", "latitude": 37.5665, "longitude": 126.978, "timezone": "Asia/Seoul"}
+GIST_URL = "https://api.github.com/gists/"
+GIST_FILE = "malhae-location.json"  # written by daily.js
+TIMEZONE_URL = "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&timezone=auto&forecast_days=1"
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&format=json&name="
 WEATHER_URL = (
     "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}"
@@ -81,8 +86,8 @@ def phrase_for(day, phrases):
     return phrases[day.toordinal() % len(phrases)]
 
 
-def get_json(url):
-    with urllib.request.urlopen(url, timeout=20) as response:
+def get_json(url, headers=None):
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers or {}), timeout=20) as response:
         return json.load(response)
 
 
@@ -106,6 +111,38 @@ def find_place(query):
                     "timezone": place["timezone"]}
     print(f"No place called {query!r} was found; using Seoul.")
     return SEOUL
+
+
+def phone_place():
+    """The place the Malhae app last saved in the secret gist, or None. Its details are hidden from the logs."""
+    gist_id = os.environ.get("LOCATION_GIST", "").strip()
+    if not gist_id:
+        return None
+    headers = {"Accept": "application/vnd.github+json"}
+    if os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
+    try:
+        files = get_json(GIST_URL + urllib.parse.quote(gist_id, safe=""), headers)["files"]
+        saved = json.loads(files[GIST_FILE]["content"])
+        lat, lon = float(saved["latitude"]), float(saved["longitude"])
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError("coordinates out of range")
+        name = str(saved.get("name") or "your location")[:80]
+        # The repository is public, so its logs are too: hide anything that tells where you are
+        for value in {name, str(lat), str(lon), f"{lat:.2f}", f"{lon:.2f}"}:
+            print(f"::add-mask::{value}")
+        zone = get_json(TIMEZONE_URL.format(latitude=lat, longitude=lon))["timezone"]
+        print(f"::add-mask::{zone}")
+        ZoneInfo(zone)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"Could not read the phone's location from the gist ({type(error).__name__}); trying the other settings.")
+        return None
+    try:
+        age = datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(saved["updated"].replace("Z", "+00:00"))
+        sent = f"sent {age.days} days ago" if age.days else f"sent {age.seconds // 3600} hours ago"
+    except (KeyError, ValueError, AttributeError):
+        sent = "time unknown"
+    return {"name": name, "latitude": lat, "longitude": lon, "timezone": zone, "private": True, "sent": sent}
 
 
 def where_you_are():
@@ -243,7 +280,7 @@ def build_email(edition, place, weather, today_phrase, tomorrow_phrase, address)
         f'Hear it in Malhae</a></td></tr>',
         f'<tr><td style="padding:24px 24px 28px;border-top:1px solid {LINE};font:400 12px/1.6 {FONT};color:{MUTED}">'
         f'Sent automatically at 06:00 and 20:00 local time in {html.escape(city)} by a GitHub Actions workflow in the '
-        f'Malhae repository. Change the place in location.txt in the repository. '
+        f'Malhae repository. Your phone sets the place: open Malhae, then Daily email location. '
         f'Weather data: Open-Meteo.</td></tr>',
     ]
     html_doc = (f'<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;padding:0;background:{GROUND}">'
@@ -277,10 +314,13 @@ def build_email(edition, place, weather, today_phrase, tomorrow_phrase, address)
 
 
 def main():
-    place = find_place(where_you_are())
+    place = phone_place() or find_place(where_you_are())
     zone = ZoneInfo(place["timezone"])
     now = datetime.datetime.now(zone)
-    print(f"Location: {place['name']} ({place['timezone']}), local time {now:%H:%M}.")
+    if place.get("private"):
+        print(f"Location: your phone's location ({place['sent']}), local time {now:%H:%M}.")
+    else:
+        print(f"Location: {place['name']} ({place['timezone']}), local time {now:%H:%M}.")
     edition = os.environ.get("EDITION", "auto").strip().lower()
     dry_run = os.environ.get("DRY_RUN") == "1"
     address = os.environ.get("GMAIL_ADDRESS", "you@example.com")
