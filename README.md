@@ -38,7 +38,7 @@ translation. Built by Johnstheward S. Alvarado as an installable web app (PWA).
 |---|---|
 | `index.html`, `style.css`, `app.js` | The phrasebook, the player, Show and Talk mode |
 | `voice.html`, `voice.css`, `voice.js` | Voice mode |
-| `daily.html`, `daily.css`, `daily.js` | Sends the phone's location to Malhae Daily (through a secret gist) |
+| `daily.html`, `daily.css`, `daily.js` | Keeps Malhae Daily's location in step with the phone's GPS (the `MALHAE_LOCATION` variable) |
 | `sw.js`, `manifest.webmanifest`, icons | Offline support and installation |
 | `.github/` | The Malhae Daily email automation |
 
