@@ -1,6 +1,6 @@
 // ============ SERVICE WORKER: keeps the phrasebook on the phone so it opens and speaks without internet ============
 // Typed-sentence translations go to MyMemory directly and are never cached. Bump VERSION after changing any file.
-const VERSION = "malhae-v6";
+const VERSION = "malhae-v7";
 const FONTS = "malhae-fonts";
 const FILES = ["./", "index.html", "style.css", "app.js", "voice.html", "voice.css", "voice.js", "daily.html", "daily.css", "daily.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-192.png", "icon-512.png"];
 

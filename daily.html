@@ -27,7 +27,7 @@
   <main class="screen daily">
     <div class="title-row">
       <h1>Daily email location</h1>
-      <p class="finding">Malhae Daily uses your phone's location for the weather and the 06:00 and 20:00 send times.</p>
+      <p class="finding">Malhae Daily uses your phone's GPS for the weather and the 06:00 and 20:00 send times.</p>
     </div>
 
     <!-- ============ NOW: where the emails think you are ============ -->
@@ -41,32 +41,39 @@
 
     <!-- ============ SET-UP: done once ============ -->
     <section class="card">
-      <p class="card-lbl">Set-up (once)</p>
+      <p class="card-lbl">1. Connect to GitHub (once)</p>
       <ol class="steps">
-        <li>On GitHub, create a fine-grained token: <b>Settings → Developer settings → Personal access tokens →
-          Fine-grained tokens → Generate new token</b>. Under <b>Account permissions</b>, set <b>Gists</b> to
-          <b>Read and write</b>. It needs nothing else.</li>
-        <li>Paste the token here and tap <b>Save</b>. It stays on this phone only.</li>
-        <li>Tap <b>Update my location now</b> and allow location. Malhae makes a secret gist for it and shows its ID below.</li>
-        <li>In the malhae repository: <b>Settings → Secrets and variables → Actions → New repository secret</b>,
-          name <code>MALHAE_LOCATION_GIST</code>, value: the gist ID.</li>
+        <li>On GitHub, open <a href="https://github.com/settings/personal-access-tokens/new">Fine-grained tokens → Generate new token</a>.
+          Name it <b>Malhae location</b> and set <b>Expiration</b> to the longest it allows.</li>
+        <li>Under <b>Repository access</b>, choose <b>Only select repositories</b> → <b>malhae</b>.</li>
+        <li>Under <b>Permissions → Repository permissions</b>, set <b>Variables</b> to <b>Read and write</b>. Nothing else.</li>
+        <li>Tap <b>Generate token</b>, copy it, paste it below and tap <b>Save</b>, then allow location.</li>
       </ol>
       <form class="token" id="token-form">
         <label class="sr-only" for="token">GitHub token</label>
         <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
         <button class="btn btn--primary" type="submit">Save</button>
       </form>
-      <div class="gist" id="gist-row" hidden>
-        <p class="card-lbl">Gist ID (the secret's value)</p>
-        <p class="gist-id"><code id="gist-id"></code> <button class="btn" id="copy" type="button">Copy</button></p>
-      </div>
-      <label class="auto"><input type="checkbox" id="auto"> Update quietly each time I open Malhae</label>
+      <label class="auto"><input type="checkbox" id="auto"> Also update each time I open Malhae</label>
       <button class="text-btn" id="forget" type="button">Forget the token on this phone</button>
     </section>
 
-    <p class="fine">Your location is rounded to about 1 km. It goes only to your own secret gist, and its town
-      name comes from BigDataCloud's free lookup. The Actions logs never show it. The emails can only use the
-      last place your phone sent, so open Malhae when you arrive somewhere new.</p>
+    <!-- ============ BACKGROUND: MacroDroid opens the sync link twice a day ============ -->
+    <section class="card">
+      <p class="card-lbl">2. Keep it updated by itself (Android)</p>
+      <ol class="steps">
+        <li>Install <b>MacroDroid</b> from the Play Store (free).</li>
+        <li>Add a macro. <b>Trigger:</b> Date/Time → Day/Time, at <b>15:00</b> and <b>21:00</b>, every day.</li>
+        <li><b>Action:</b> Applications → Open Website, with this link, in Chrome:</li>
+      </ol>
+      <p class="gist-id"><code id="sync-link"></code> <button class="btn" id="copy" type="button">Copy</button></p>
+      <p class="when">The emails pick up the place a few hours before each send, so 15:00 covers the evening brief
+        and 21:00 the next morning's. Give MacroDroid permission to open apps over others if it asks.</p>
+    </section>
+
+    <p class="fine">Your position is rounded to about 11 km and saved with its town name (from BigDataCloud's free
+      lookup) in the MALHAE_LOCATION variable of your public repository, so the town can show in its Actions logs.
+      The token stays on this phone.</p>
   </main>
 
   <script src="daily.js"></script>
